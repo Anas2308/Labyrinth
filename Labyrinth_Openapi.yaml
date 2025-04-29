@@ -1,0 +1,171 @@
+openapi: 3.0.0
+info:
+  title: Labyrinth_Portfolio
+  version: 1.0.0
+  description: |
+    Diese API steuert ein Labyrinth-Spiel. 
+    Der Spieler startet immer auf A1 und bewegt sich durch das Spielfeld.
+    Ziel ist es, das Feld E5 zu erreichen, ohne das Spielfeld zu verlassen.
+
+paths:
+  /game:
+    post:
+      summary: Neues Spiel starten
+      description: |
+        Startet ein neues Spiel. Der Spieler beginnt immer auf Feld A1. 
+        Es wird eine neue gameId vergeben und das Spiel läuft solange man gewinnt oder verliert.
+      operationId: startGame
+      responses:
+        '201':
+          description: Spiel wurde erfolgreich gestartet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartResponse'
+
+  /game/{gameId}:
+    get:
+      summary: Spielstatus abfragen
+      description: |
+        Gibt zurück, wo der Spieler gerade steht und welchen Status das Spiel hat.
+      operationId: getGameState
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID des Spiels (z. B. 1, 2, 3...)
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Aktuelle Position und Status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateResponse'
+        '404':
+          description: Spiel wurde nicht gefunden (falsche gameId)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /game/{gameId}/move:
+    put:
+      summary: Spieler gibt eine Richtung vor, Client prüft das Spielfeld
+      description: |
+        Der Client entscheidet, ob die Bewegung gültig ist (z. B. keine Wand). 
+        Der Server speichert nur die neue Position und gibt die aktualisierte 
+        Map und den neuen Spielstatus zurück.
+      operationId: makeMove
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID des Spiels (z. B. 1, 2, 3...)
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveInput'
+      responses:
+        '200':
+          description: Neue Position und Map wurden zurückgegeben
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MoveResponse'
+        '400':
+          description: Ungültige Richtung
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    StartResponse:
+      type: object
+      description: Antwort beim Starten eines Spiels
+      properties:
+        gameId:
+          type: integer
+          description: ID des neu gestarteten Spiels
+          example: 1
+        position:
+          type: string
+          description: Startposition, immer "A1"
+          example: "A1"
+        status:
+          type: string
+          description: Spielstatus (läuft gerade)
+          enum: [running]
+        message:
+          type: string
+          description: Textnachricht zur Bestätigung
+          example: "Spiel erfolgreich gestartet. Spieler steht auf A1."
+
+    MoveInput:
+      type: object
+      description: Gibt an, in welche Richtung sich der Spieler bewegen will
+      properties:
+        direction:
+          type: string
+          description: Muss eine der vier Richtungen sein
+          enum: [up, down, left, right]
+      required:
+        - direction
+
+    MoveResponse:
+      type: object
+      description: Rückgabe nach einer Bewegung
+      properties:
+        position:
+          type: string
+          description: Neue Position des Spielers nach der Bewegung
+          example: "B2"
+        status:
+          type: string
+          description: Status nach dem Zug
+          enum: [running, success, failed]
+        message:
+          type: string
+          description: Zusätzliche Info (z. B. Erfolgsmeldung oder Blockade-Hinweis)
+          example: "Zug erfolgreich."
+
+    StateResponse:
+      type: object
+      description: Antwort beim Abfragen des Spielstatus
+      properties:
+        position:
+          type: string
+          description: Wo der Spieler aktuell steht
+          example: "C3"
+        status:
+          type: string
+          description: Gibt an, ob das Spiel noch läuft, gewonnen oder verloren wurde
+          enum: [running, success, failed]
+        message:
+          type: string
+          description: Kurze Info über den Spielstatus
+          example: "Spiel läuft noch."
+
+    ErrorResponse:
+      type: object
+      description: Standard-Fehlerantwort
+      properties:
+        error:
+          type: string
+          description: Fehlermeldung (z. B. ungültige Richtung oder Spiel vorbei)
+          example: "Ungültige Richtung"
+        position:
+          type: string
+          description: Aktuelle Spielerposition trotz Fehler
+          example: "B2"
+        status:
+          type: string
+          description: Status bleibt erhalten (z. B. noch running)
+          enum: [running, success, failed]
